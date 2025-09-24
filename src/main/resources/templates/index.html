@@ -1,0 +1,528 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SecurePaste</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        
+        .container {
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+        }
+        
+        .header {
+            text-align: center;
+            margin-bottom: 40px;
+        }
+        
+        .header h1 {
+            color: #2c3e50;
+            font-size: 2.5rem;
+            margin-bottom: 10px;
+        }
+        
+        .header p {
+            color: #7f8c8d;
+            font-size: 1.1rem;
+        }
+        
+        .form-section {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            margin-bottom: 40px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #34495e;
+        }
+        
+        input, textarea, select {
+            width: 100%;
+            padding: 12px;
+            border: 2px solid #e1e8ed;
+            border-radius: 6px;
+            font-size: 14px;
+            transition: border-color 0.3s;
+        }
+        
+        input:focus, textarea:focus, select:focus {
+            outline: none;
+            border-color: #3498db;
+        }
+        
+        textarea {
+            min-height: 300px;
+            font-family: 'Courier New', monospace;
+            resize: vertical;
+        }
+        
+        .form-row {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+        }
+        
+        .btn {
+            background: #3498db;
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            transition: background 0.3s;
+        }
+        
+        .btn:hover {
+            background: #2980b9;
+        }
+        
+        .btn-secondary {
+            background: #95a5a6;
+        }
+        
+        .btn-secondary:hover {
+            background: #7f8c8d;
+        }
+        
+        .recent-pastes {
+            background: white;
+            border-radius: 10px;
+            padding: 30px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+        }
+        
+        .paste-item {
+            border-bottom: 1px solid #ecf0f1;
+            padding: 15px 0;
+        }
+        
+        .paste-item:last-child {
+            border-bottom: none;
+        }
+        
+        .paste-title {
+            font-weight: 600;
+            color: #2c3e50;
+            text-decoration: none;
+        }
+        
+        .paste-title:hover {
+            color: #3498db;
+        }
+        
+        .paste-meta {
+            font-size: 12px;
+            color: #7f8c8d;
+            margin-top: 5px;
+        }
+        
+        .alert {
+            padding: 15px;
+            margin-bottom: 20px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .alert-success {
+            background: #d4edda;
+            color: #155724;
+            border: 1px solid #c3e6cb;
+        }
+        
+        .alert-error {
+            background: #f8d7da;
+            color: #721c24;
+            border: 1px solid #f5c6cb;
+        }
+        
+        .loading {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3498db;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        .result-item {
+            margin-bottom: 15px;
+        }
+        
+        .result-item label {
+            display: block;
+            margin-bottom: 5px;
+            font-weight: 600;
+            color: #27ae60;
+        }
+        
+        .result-value {
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+        
+        .result-value input {
+            flex: 1;
+            background: #f8f9fa;
+            font-family: monospace;
+            font-size: 13px;
+        }
+        
+        .btn-copy {
+            background: #27ae60;
+            color: white;
+            padding: 8px 15px;
+            border: none;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 13px;
+            white-space: nowrap;
+        }
+        
+        .btn-copy:hover {
+            background: #219a52;
+        }
+        
+        .result-actions {
+            display: flex;
+            gap: 10px;
+            margin-top: 20px;
+            flex-wrap: wrap;
+        }
+        
+        #resultSection h3 {
+            color: #27ae60;
+            margin-bottom: 20px;
+            font-size: 1.3rem;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @media (max-width: 768px) {
+            .form-row {
+                grid-template-columns: 1fr;
+            }
+            
+            .container {
+                padding: 10px;
+            }
+            
+            .header h1 {
+                font-size: 2rem;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="header">
+            <h1>🔒 SecurePaste</h1>
+            <p>Share code securely with expiration and password protection</p>
+        </div>
+
+        <div id="alert" class="alert"></div>
+
+        <div class="form-section">
+            <h2>Create New Paste</h2>
+            <form id="pasteForm">
+                <div class="form-group">
+                    <label for="title">Title *</label>
+                    <input type="text" id="title" name="title" required placeholder="Enter paste title...">
+                </div>
+
+                <div class="form-group">
+                    <label for="content">Content *</label>
+                    <textarea id="content" name="content" required placeholder="Paste your code or text here..."></textarea>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="language">Language (optional)</label>
+                        <select id="language" name="language">
+                            <option value="">Select language...</option>
+                            <option value="javascript">JavaScript</option>
+                            <option value="python">Python</option>
+                            <option value="java">Java</option>
+                            <option value="cpp">C++</option>
+                            <option value="c">C</option>
+                            <option value="go">Go</option>
+                            <option value="rust">Rust</option>
+                            <option value="php">PHP</option>
+                            <option value="ruby">Ruby</option>
+                            <option value="bash">Bash</option>
+                            <option value="sql">SQL</option>
+                            <option value="json">JSON</option>
+                            <option value="xml">XML</option>
+                            <option value="yaml">YAML</option>
+                            <option value="css">CSS</option>
+                            <option value="html">HTML</option>
+                            <option value="markdown">Markdown</option>
+                            <option value="plaintext">Plain Text</option>
+                        </select>
+                    </div>
+
+                    <div class="form-group">
+                        <label for="visibility">Visibility</label>
+                        <select id="visibility" name="visibility">
+                            <option value="PUBLIC">Public</option>
+                            <option value="UNLISTED">Unlisted</option>
+                            <option value="PRIVATE">Private</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="authorName">Author Name (optional)</label>
+                        <input type="text" id="authorName" name="authorName" placeholder="Your name">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="authorEmail">Author Email (optional)</label>
+                        <input type="email" id="authorEmail" name="authorEmail" placeholder="your@email.com">
+                    </div>
+                </div>
+
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="expirationMinutes">Expiration (minutes, optional)</label>
+                        <input type="number" id="expirationMinutes" name="expirationMinutes" min="1" max="525600" placeholder="Minutes until expiration">
+                    </div>
+
+                    <div class="form-group">
+                        <label for="password">Password (optional)</label>
+                        <input type="password" id="password" name="password" placeholder="Password to protect paste">
+                    </div>
+                </div>
+
+                <div class="form-group">
+                    <button type="submit" class="btn">Create Paste</button>
+                    <button type="reset" class="btn btn-secondary">Clear Form</button>
+                </div>
+            </form>
+        </div>
+
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p>Creating paste...</p>
+        </div>
+
+        <div id="resultSection" class="form-section" style="display: none;">
+            <h3>✅ Paste Created Successfully!</h3>
+            <div class="result-item">
+                <label>Paste ID:</label>
+                <div class="result-value">
+                    <input type="text" id="pasteId" readonly>
+                    <button class="btn btn-copy" onclick="copyToClipboard('pasteId')">Copy ID</button>
+                </div>
+            </div>
+            <div class="result-item">
+                <label>Paste URL:</label>
+                <div class="result-value">
+                    <input type="text" id="pasteUrl" readonly>
+                    <button class="btn btn-copy" onclick="copyToClipboard('pasteUrl')">Copy URL</button>
+                </div>
+            </div>
+            <div class="result-actions">
+                <a id="viewPasteLink" href="#" class="btn" target="_blank">View Paste</a>
+                <button class="btn btn-secondary" onclick="createAnotherPaste()">Create Another Paste</button>
+            </div>
+        </div>
+
+        <div class="recent-pastes">
+            <h2>Recent Public Pastes</h2>
+            <div id="recentPastes">
+                <p>Loading recent pastes...</p>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const API_BASE = '/api/pastes';
+
+        // Show alert message
+        function showAlert(message, type = 'success') {
+            const alert = document.getElementById('alert');
+            alert.className = `alert alert-${type}`;
+            alert.textContent = message;
+            alert.style.display = 'block';
+            setTimeout(() => {
+                alert.style.display = 'none';
+            }, 5000);
+        }
+
+        // Show/hide loading
+        function setLoading(show) {
+            document.getElementById('loading').style.display = show ? 'block' : 'none';
+        }
+        
+        // Show paste result section
+        function showPasteResult(result) {
+            const pasteUrl = `${window.location.origin}/paste/${result.id}`;
+            
+            document.getElementById('pasteId').value = result.id;
+            document.getElementById('pasteUrl').value = pasteUrl;
+            document.getElementById('viewPasteLink').href = pasteUrl;
+            
+            document.getElementById('resultSection').style.display = 'block';
+            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+        }
+        
+        // Copy text to clipboard
+        async function copyToClipboard(elementId) {
+            const element = document.getElementById(elementId);
+            const text = element.value;
+            
+            try {
+                await navigator.clipboard.writeText(text);
+                
+                // Visual feedback
+                const button = element.nextElementSibling;
+                const originalText = button.textContent;
+                button.textContent = 'Copied!';
+                button.style.background = '#27ae60';
+                
+                setTimeout(() => {
+                    button.textContent = originalText;
+                    button.style.background = '';
+                }, 2000);
+            } catch (err) {
+                // Fallback for older browsers
+                element.select();
+                document.execCommand('copy');
+                showAlert('Copied to clipboard!', 'success');
+            }
+        }
+        
+        // Create another paste (hide result section)
+        function createAnotherPaste() {
+            document.getElementById('resultSection').style.display = 'none';
+            document.getElementById('title').focus();
+        }
+
+        // Handle form submission
+        document.getElementById('pasteForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const formData = new FormData(e.target);
+            const data = {};
+            
+            // Convert form data to object
+            for (let [key, value] of formData.entries()) {
+                if (value.trim()) {
+                    if (key === 'expirationMinutes') {
+                        data[key] = parseInt(value);
+                    } else {
+                        data[key] = value;
+                    }
+                }
+            }
+
+            try {
+                setLoading(true);
+                
+                const response = await fetch(API_BASE, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data)
+                });
+
+                if (!response.ok) {
+                    throw new Error(`HTTP error! status: ${response.status}`);
+                }
+
+                const result = await response.json();
+                
+                // Show persistent result section
+                showPasteResult(result);
+                
+                // Clear form
+                document.getElementById('pasteForm').reset();
+                
+                // Refresh recent pastes
+                loadRecentPastes();
+
+            } catch (error) {
+                console.error('Error creating paste:', error);
+                showAlert(`Error creating paste: ${error.message}`, 'error');
+            } finally {
+                setLoading(false);
+            }
+        });
+
+        // Load recent public pastes
+        async function loadRecentPastes() {
+            try {
+                const response = await fetch(`${API_BASE}/public?size=5`);
+                if (!response.ok) {
+                    throw new Error('Failed to fetch recent pastes');
+                }
+                
+                const data = await response.json();
+                const container = document.getElementById('recentPastes');
+                
+                if (data.content && data.content.length > 0) {
+                    container.innerHTML = data.content.map(paste => `
+                        <div class="paste-item">
+                            <a href="/paste/${paste.id}" class="paste-title">${paste.title}</a>
+                            <div class="paste-meta">
+                                ${paste.language ? `Language: ${paste.language} | ` : ''}
+                                Author: ${paste.authorName || 'Anonymous'} | 
+                                Views: ${paste.viewCount} | 
+                                Created: ${new Date(paste.createdAt).toLocaleString()}
+                                ${paste.expiresAt ? ` | Expires: ${new Date(paste.expiresAt).toLocaleString()}` : ''}
+                            </div>
+                        </div>
+                    `).join('');
+                } else {
+                    container.innerHTML = '<p>No public pastes found.</p>';
+                }
+            } catch (error) {
+                console.error('Error loading recent pastes:', error);
+                document.getElementById('recentPastes').innerHTML = '<p>Error loading recent pastes.</p>';
+            }
+        }
+
+        // Load recent pastes on page load
+        document.addEventListener('DOMContentLoaded', () => {
+            loadRecentPastes();
+        });
+    </script>
+</body>
+</html>

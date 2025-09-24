@@ -1,0 +1,246 @@
+/* SecurePaste Shared Styles */
+
+/* Root variables for consistent theming */
+:root {
+  --primary-color: #1976d2;
+  --primary-dark: #0d47a1;
+  --secondary-color: #424242;
+  --error-color: #d32f2f;
+  --warning-color: #f57c00;
+  --success-color: #4caf50;
+  --background-color: #fafafa;
+  --surface-color: #ffffff;
+  --text-primary: #212121;
+  --text-secondary: #666666;
+  --border-color: #e0e0e0;
+}
+
+/* Global styles */
+body {
+  font-family: 'Roboto', 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background-color: var(--background-color);
+  color: var(--text-primary);
+  margin: 0;
+  padding: 0;
+}
+
+/* Code and monospace text styling */
+.code-block {
+  background-color: #f8f8f8;
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  padding: 1rem;
+  font-family: 'Consolas', 'Monaco', 'Courier New', monospace;
+  font-size: 14px;
+  line-height: 1.5;
+  white-space: pre-wrap;
+  word-break: break-word;
+  overflow-x: auto;
+  max-height: 500px;
+  overflow-y: auto;
+}
+
+/* Language badges */
+.language-badge {
+  background-color: var(--primary-color);
+  color: white;
+  padding: 0.25rem 0.5rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  font-weight: bold;
+  text-transform: uppercase;
+}
+
+/* Metadata styling */
+.metadata-container {
+  background-color: #f5f5f5;
+  padding: 1rem;
+  border-radius: 4px;
+  border: 1px solid var(--border-color);
+  margin: 1rem 0;
+}
+
+.metadata-item {
+  display: inline-block;
+  margin-right: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+/* Status indicators */
+.status-expired {
+  color: var(--error-color);
+  font-weight: bold;
+}
+
+.status-protected {
+  color: var(--warning-color);
+  font-weight: bold;
+}
+
+.status-active {
+  color: var(--success-color);
+  font-weight: bold;
+}
+
+/* Button customizations */
+.primary-button {
+  background-color: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.75rem 1.5rem;
+  border-radius: 4px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background-color 0.3s ease;
+}
+
+.primary-button:hover {
+  background-color: var(--primary-dark);
+}
+
+/* Form styling */
+.form-container {
+  max-width: 800px;
+  margin: 0 auto;
+  padding: 2rem;
+  background-color: var(--surface-color);
+  border-radius: 8px;
+  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+}
+
+.form-section {
+  margin-bottom: 2rem;
+}
+
+.form-section h3 {
+  color: var(--primary-color);
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 0.5rem;
+  margin-bottom: 1rem;
+}
+
+/* Grid and table styling */
+.data-grid {
+  border: 1px solid var(--border-color);
+  border-radius: 4px;
+  overflow: hidden;
+}
+
+.data-grid .grid-header {
+  background-color: #f5f5f5;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.data-grid .grid-row:hover {
+  background-color: rgba(25, 118, 210, 0.04);
+}
+
+/* Link styling */
+a {
+  color: var(--primary-color);
+  text-decoration: none;
+  transition: color 0.3s ease;
+}
+
+a:hover {
+  color: var(--primary-dark);
+  text-decoration: underline;
+}
+
+/* Notification customizations */
+.notification-success {
+  background-color: var(--success-color);
+  color: white;
+}
+
+.notification-error {
+  background-color: var(--error-color);
+  color: white;
+}
+
+.notification-warning {
+  background-color: var(--warning-color);
+  color: white;
+}
+
+/* Responsive design */
+@media (max-width: 768px) {
+  .form-container {
+    padding: 1rem;
+    margin: 0 0.5rem;
+  }
+  
+  .metadata-item {
+    display: block;
+    margin-bottom: 0.5rem;
+    margin-right: 0;
+  }
+  
+  .code-block {
+    font-size: 12px;
+    padding: 0.75rem;
+  }
+}
+
+/* Utility classes */
+.text-center {
+  text-align: center;
+}
+
+.text-muted {
+  color: var(--text-secondary);
+}
+
+.margin-top {
+  margin-top: 1rem;
+}
+
+.margin-bottom {
+  margin-bottom: 1rem;
+}
+
+.padding {
+  padding: 1rem;
+}
+
+.no-margin {
+  margin: 0;
+}
+
+.full-width {
+  width: 100%;
+}
+
+/* Loading and empty states */
+.loading-indicator {
+  text-align: center;
+  padding: 2rem;
+  color: var(--text-secondary);
+}
+
+.empty-state {
+  text-align: center;
+  padding: 3rem 1rem;
+  color: var(--text-secondary);
+}
+
+.empty-state h3 {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+}
+
+/* Error states */
+.error-container {
+  text-align: center;
+  padding: 2rem;
+  border: 1px solid var(--error-color);
+  border-radius: 4px;
+  background-color: rgba(211, 47, 47, 0.04);
+}
+
+.error-container h2 {
+  color: var(--error-color);
+  margin-bottom: 1rem;
+}
