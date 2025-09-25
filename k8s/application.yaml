@@ -23,6 +23,8 @@ data:
         org.springframework.security: WARN
       file:
         name: logs/securepaste.log
+    securepaste:
+      base-url: https://paste.yourdomain.com  # Change this to your domain
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -66,6 +68,8 @@ spec:
             secretKeyRef:
               name: postgres-secret
               key: password
+        - name: BASE_URL
+          value: "https://paste.yourdomain.com"  # Change this to your domain
         - name: JAVA_OPTS
           value: "-XX:+UseContainerSupport -XX:MaxRAMPercentage=80.0 -XX:+ExitOnOutOfMemoryError"
         ports:

@@ -62,6 +62,12 @@ management:
     health:
       show-details: when-authorized
 
+# SecurePaste application configuration
+securepaste:
+  base-url: http://localhost:8097
+  # This URL will be used for generating paste links in the UI
+  # For development, this defaults to localhost with the configured port
+
 ---
 # Production profile
 spring:
@@ -94,6 +100,14 @@ logging:
   file:
     name: logs/securepaste.log
 
+securepaste:
+  base-url: ${BASE_URL:https://your-domain.com}
+  # For production, this should be set via BASE_URL environment variable
+  # Examples:
+  #   https://paste.example.com
+  #   https://192.168.1.100:8080
+  #   http://myserver.local:8080
+
 ---
 # Docker profile
 spring:
@@ -114,3 +128,10 @@ spring:
 
 server:
   port: 8080
+
+securepaste:
+  base-url: ${BASE_URL:http://localhost:8080}
+  # For Docker, this should be set via BASE_URL environment variable
+  # Examples:
+  #   http://192.168.1.100:8080 (for local network access)
+  #   https://paste.yourdomain.com (for production with reverse proxy)

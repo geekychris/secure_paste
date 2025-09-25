@@ -33,6 +33,7 @@ services:
       - SPRING_PROFILES_ACTIVE=docker
       - DB_USERNAME=pastebin
       - DB_PASSWORD=pastebin123
+      - BASE_URL=${BASE_URL:-http://localhost:8080}
       - JAVA_OPTS=-Xmx512m -XX:+UseContainerSupport
     ports:
       - "8080:8080"

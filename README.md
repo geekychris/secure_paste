@@ -152,11 +152,46 @@ A secure, feature-rich pastebin service built with Spring Boot, offering both RE
    docker run -p 8080:8080 securepaste:latest
    ```
 
+### Base URL Configuration
+
+SecurePaste allows you to configure the base URL that's used for generating paste links in the UI. This is essential for production deployments where the service runs on different hosts or ports.
+
+#### Development (Default)
+The default configuration uses `http://localhost:8097` for development.
+
+#### Environment Variable Configuration
+For production deployments, set the `BASE_URL` environment variable:
+
+```bash
+# For a production server
+export BASE_URL="https://paste.yourdomain.com"
+
+# For a local network deployment
+export BASE_URL="http://192.168.1.100:8080"
+
+# For Docker with custom host
+export BASE_URL="http://myserver.local:8080"
+```
+
+#### Application Properties
+Alternatively, you can set the base URL in `application.yml`:
+
+```yaml
+securepaste:
+  base-url: https://your-production-domain.com
+```
+
+#### Profile-Specific Configuration
+- **Development**: Uses `http://localhost:8097`
+- **Production**: Uses `${BASE_URL:https://your-domain.com}`
+- **Docker**: Uses `${BASE_URL:http://localhost:8080}`
+
 ### Production Deployment
 
 #### Using Docker Compose with PostgreSQL
 ```bash
 # Production deployment with PostgreSQL
+export BASE_URL="https://paste.yourdomain.com"
 docker-compose -f docker-compose.yml up -d
 
 # With nginx reverse proxy

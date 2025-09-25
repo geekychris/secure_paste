@@ -373,6 +373,29 @@
 
     <script>
         const API_BASE = '/api/pastes';
+        let APP_CONFIG = null;
+
+        // Initialize application configuration
+        async function initializeApp() {
+            try {
+                const response = await fetch('/api/config');
+                if (response.ok) {
+                    APP_CONFIG = await response.json();
+                    console.log('App config loaded:', APP_CONFIG);
+                } else {
+                    console.warn('Failed to load app config, using fallback');
+                    APP_CONFIG = { baseUrl: window.location.origin };
+                }
+            } catch (error) {
+                console.error('Error loading app config:', error);
+                APP_CONFIG = { baseUrl: window.location.origin };
+            }
+        }
+
+        // Get the configured base URL
+        function getBaseUrl() {
+            return APP_CONFIG ? APP_CONFIG.baseUrl : window.location.origin;
+        }
 
         // Show alert message
         function showAlert(message, type = 'success') {
@@ -392,7 +415,7 @@
         
         // Show paste result section
         function showPasteResult(result) {
-            const pasteUrl = `${window.location.origin}/paste/${result.id}`;
+            const pasteUrl = `${getBaseUrl()}/paste/${result.id}`;
             
             document.getElementById('pasteId').value = result.id;
             document.getElementById('pasteUrl').value = pasteUrl;
@@ -519,8 +542,9 @@
             }
         }
 
-        // Load recent pastes on page load
-        document.addEventListener('DOMContentLoaded', () => {
+        // Initialize app and load recent pastes on page load
+        document.addEventListener('DOMContentLoaded', async () => {
+            await initializeApp();
             loadRecentPastes();
         });
     </script>
