@@ -69,14 +69,14 @@ securepaste:
   # For development, this defaults to localhost with the configured port
 
 ---
-# Production profile
+# Production profile (for standalone deployments)
 spring:
   config:
     activate:
       on-profile: production
       
   datasource:
-    url: jdbc:postgresql://localhost:5432/pastebin
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:pastebin}}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:pastebin}
     password: ${DB_PASSWORD:pastebin}
@@ -109,14 +109,14 @@ securepaste:
   #   http://myserver.local:8080
 
 ---
-# Docker profile
+# Docker profile (for container deployments)
 spring:
   config:
     activate:
       on-profile: docker
       
   datasource:
-    url: jdbc:postgresql://postgres:5432/pastebin
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:pastebin}}
     driver-class-name: org.postgresql.Driver
     username: ${DB_USERNAME:pastebin}
     password: ${DB_PASSWORD:pastebin}
@@ -135,3 +135,41 @@ securepaste:
   # Examples:
   #   http://192.168.1.100:8080 (for local network access)
   #   https://paste.yourdomain.com (for production with reverse proxy)
+
+---
+# Kubernetes profile (for Kubernetes deployments)
+spring:
+  config:
+    activate:
+      on-profile: kubernetes
+      
+  datasource:
+    # Use environment variables provided by ConfigMap and Secret
+    url: ${DB_URL:jdbc:postgresql://${DB_HOST:postgres}:${DB_PORT:5432}/${DB_NAME:pastebin}}
+    driver-class-name: org.postgresql.Driver
+    username: ${DB_USERNAME:pastebin}
+    password: ${DB_PASSWORD:pastebin}
+    
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        format_sql: false
+
+server:
+  port: 8080
+
+logging:
+  level:
+    com.securepaste: INFO
+    org.springframework.security: WARN
+  file:
+    name: logs/securepaste.log
+
+securepaste:
+  base-url: ${BASE_URL:https://paste.yourdomain.com}
+  # For Kubernetes, this should be set via BASE_URL environment variable
+  # This will be the external URL used to access the service

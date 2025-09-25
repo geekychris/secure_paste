@@ -35,6 +35,19 @@ data:
     CREATE DATABASE pastebin;
     GRANT ALL PRIVILEGES ON DATABASE pastebin TO pastebin;
 ---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  namespace: securepaste
+data:
+  # PostgreSQL connection configuration
+  database-host: "postgres"
+  database-port: "5432"
+  database-name: "pastebin"
+  # JDBC URL will be constructed as: jdbc:postgresql://${host}:${port}/${database}
+  database-url: "jdbc:postgresql://postgres:5432/pastebin"
+---
 apiVersion: apps/v1
 kind: Deployment
 metadata:

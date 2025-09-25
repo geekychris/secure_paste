@@ -1,30 +1,5 @@
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: securepaste-config
-  namespace: securepaste
-data:
-  application.yml: |
-    spring:
-      profiles:
-        active: production
-      datasource:
-        url: jdbc:postgresql://postgres:5432/pastebin
-        driver-class-name: org.postgresql.Driver
-      jpa:
-        hibernate:
-          ddl-auto: update
-        show-sql: false
-    server:
-      port: 8080
-    logging:
-      level:
-        com.securepaste: INFO
-        org.springframework.security: WARN
-      file:
-        name: logs/securepaste.log
-    securepaste:
-      base-url: https://paste.yourdomain.com  # Change this to your domain
+# Application configuration is now handled via environment variables
+# No separate ConfigMap needed for application.yml
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -57,7 +32,29 @@ spec:
         imagePullPolicy: IfNotPresent
         env:
         - name: SPRING_PROFILES_ACTIVE
-          value: "production"
+          value: "kubernetes"
+        # Database connection from ConfigMap
+        - name: DB_HOST
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: database-host
+        - name: DB_PORT
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: database-port
+        - name: DB_NAME
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: database-name
+        - name: DB_URL
+          valueFrom:
+            configMapKeyRef:
+              name: database-config
+              key: database-url
+        # Database credentials from Secret
         - name: DB_USERNAME
           valueFrom:
             secretKeyRef:
@@ -102,9 +99,6 @@ spec:
         volumeMounts:
         - name: logs
           mountPath: /app/logs
-        - name: config
-          mountPath: /app/config
-          readOnly: true
         securityContext:
           runAsNonRoot: true
           runAsUser: 1001
@@ -117,9 +111,6 @@ spec:
       volumes:
       - name: logs
         emptyDir: {}
-      - name: config
-        configMap:
-          name: securepaste-config
       restartPolicy: Always
       securityContext:
         fsGroup: 1001
@@ -133,10 +124,11 @@ metadata:
     app: securepaste
     component: application
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - port: 80
     targetPort: 8080
+    nodePort: 30080
     protocol: TCP
     name: http
   selector:

@@ -185,6 +185,49 @@ securepaste:
 - **Development**: Uses `http://localhost:8097`
 - **Production**: Uses `${BASE_URL:https://your-domain.com}`
 - **Docker**: Uses `${BASE_URL:http://localhost:8080}`
+- **Kubernetes**: Uses `${BASE_URL:https://paste.yourdomain.com}`
+
+### Database Configuration
+
+SecurePaste supports flexible database configuration for different deployment scenarios:
+
+#### Development Environment
+- **Database**: H2 (in-memory)
+- **Profile**: `default`
+- **Configuration**: Automatic, no setup required
+- **Usage**: Perfect for development and testing
+
+#### Production Environments
+For production deployments, PostgreSQL is used with flexible configuration options:
+
+##### Environment Variables (Recommended)
+```bash
+# Individual components (most flexible)
+export DB_HOST="your-postgres-host"
+export DB_PORT="5432"
+export DB_NAME="pastebin"
+export DB_USERNAME="your_username"
+export DB_PASSWORD="your_password"
+
+# Alternative: Complete URL
+export DB_URL="jdbc:postgresql://your-postgres-host:5432/pastebin"
+export DB_USERNAME="your_username"
+export DB_PASSWORD="your_password"
+```
+
+##### Application Properties
+```yaml
+securepaste:
+  datasource:
+    url: jdbc:postgresql://localhost:5432/pastebin
+    username: pastebin
+    password: pastebin123
+```
+
+##### Profile-Specific Database Configuration
+- **Production Profile**: Uses localhost PostgreSQL by default
+- **Docker Profile**: Uses `postgres` service by default
+- **Kubernetes Profile**: Uses ConfigMap and Secret for configuration
 
 ### Production Deployment
 
@@ -199,16 +242,56 @@ docker-compose --profile with-nginx up -d
 ```
 
 #### Using Kubernetes
+
+Kubernetes deployment uses ConfigMaps and Secrets for database configuration:
+
 ```bash
-# Apply all Kubernetes manifests
+# 1. Review and customize database configuration
+# Edit k8s/postgres.yaml to modify:
+#   - postgres-secret: Database credentials (base64 encoded)
+#   - database-config: Connection parameters
+
+# 2. Update application configuration
+# Edit k8s/application.yaml to modify:
+#   - BASE_URL: Your external domain
+#   - Resource limits and requests
+
+# 3. Apply all Kubernetes manifests
 kubectl apply -f k8s/
 
-# Check deployment status
+# 4. Check deployment status
 kubectl get pods -n securepaste
+kubectl get configmaps -n securepaste
+kubectl get secrets -n securepaste
 
-# Access logs
+# 5. Access logs
 kubectl logs -f deployment/securepaste-app -n securepaste
+kubectl logs -f deployment/postgres -n securepaste
 ```
+
+##### Kubernetes Database Configuration Details
+
+**ConfigMap (database-config)**:
+```yaml
+data:
+  database-host: "postgres"
+  database-port: "5432"
+  database-name: "pastebin"
+  database-url: "jdbc:postgresql://postgres:5432/pastebin"
+```
+
+**Secret (postgres-secret)**:
+```yaml
+data:
+  username: cGFzdGViaW4=    # base64: pastebin
+  password: cGFzdGViaW4xMjM= # base64: pastebin123
+  database: cGFzdGViaW4=    # base64: pastebin
+```
+
+**Environment Variables in Deployment**:
+- `DB_HOST`, `DB_PORT`, `DB_NAME`: From database-config ConfigMap
+- `DB_USERNAME`, `DB_PASSWORD`: From postgres-secret Secret
+- `SPRING_PROFILES_ACTIVE`: Set to `kubernetes`
 
 ## 📚 API Documentation
 

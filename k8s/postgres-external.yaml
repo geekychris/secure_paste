@@ -1,0 +1,181 @@
+apiVersion: v1
+kind: Secret
+metadata:
+  name: postgres-secret
+  namespace: securepaste
+type: Opaque
+data:
+  # Base64 encoded values for connecting to existing PostgreSQL
+  # postgres / postgres123 / securepaste
+  username: cG9zdGdyZXM=          # postgres
+  password: cG9zdGdyZXMxMjM=      # postgres123
+  database: c2VjdXJlcGFzdGU=      # securepaste
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: database-config
+  namespace: securepaste
+data:
+  # PostgreSQL connection configuration for existing instance
+  database-host: "postgres"
+  database-port: "5432"
+  database-name: "securepaste"
+  # JDBC URL will be constructed as: jdbc:postgresql://${host}:${port}/${database}
+  database-url: "jdbc:postgresql://postgres:5432/securepaste"
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: postgres-init-config
+  namespace: securepaste
+data:
+  init-database.sql: |
+    -- SecurePaste Database Initialization Script
+    -- This script creates the database and application user if they don't exist
+    
+    -- Create the securepaste database if it doesn't exist
+    SELECT 'CREATE DATABASE securepaste'
+    WHERE NOT EXISTS (SELECT FROM pg_database WHERE datname = 'securepaste')\gexec
+    
+    -- Create application user if it doesn't exist (for future use)
+    DO
+    $do$
+    BEGIN
+       IF NOT EXISTS (
+          SELECT FROM pg_catalog.pg_roles
+          WHERE  rolname = 'securepaste_user') THEN
+          
+          CREATE ROLE securepaste_user LOGIN PASSWORD 'securepaste123';
+       END IF;
+    END
+    $do$;
+    
+    -- Grant privileges to the securepaste_user on the securepaste database
+    GRANT ALL PRIVILEGES ON DATABASE securepaste TO securepaste_user;
+    
+    -- Connect to securepaste database and create schema
+    \c securepaste;
+    
+    -- Grant schema privileges
+    GRANT ALL ON SCHEMA public TO securepaste_user;
+    GRANT ALL PRIVILEGES ON ALL TABLES IN SCHEMA public TO securepaste_user;
+    GRANT ALL PRIVILEGES ON ALL SEQUENCES IN SCHEMA public TO securepaste_user;
+    
+    -- Create initial tables if they don't exist (optional - Spring Boot will handle this)
+    CREATE TABLE IF NOT EXISTS paste (
+        id VARCHAR(255) PRIMARY KEY,
+        title VARCHAR(500) NOT NULL,
+        content TEXT NOT NULL,
+        language VARCHAR(50),
+        author_name VARCHAR(100),
+        author_email VARCHAR(100),
+        visibility VARCHAR(20) DEFAULT 'PUBLIC',
+        password_hash VARCHAR(255),
+        view_count INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        expires_at TIMESTAMP,
+        deleted BOOLEAN DEFAULT FALSE
+    );
+    
+    -- Create indexes for better performance
+    CREATE INDEX IF NOT EXISTS idx_paste_created_at ON paste(created_at);
+    CREATE INDEX IF NOT EXISTS idx_paste_visibility ON paste(visibility);
+    CREATE INDEX IF NOT EXISTS idx_paste_expires_at ON paste(expires_at);
+---
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: postgres-init-job
+  namespace: securepaste
+spec:
+  template:
+    spec:
+      containers:
+      - name: postgres-init
+        image: postgres:15-alpine
+        env:
+        - name: PGHOST
+          value: "postgres"
+        - name: PGPORT
+          value: "5432"
+        - name: PGUSER
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: username
+        - name: PGPASSWORD
+          valueFrom:
+            secretKeyRef:
+              name: postgres-secret
+              key: password
+        - name: PGDATABASE
+          value: "postgres"  # Connect to postgres database initially
+        command:
+        - /bin/sh
+        - -c
+        - |
+          echo "Waiting for PostgreSQL to be ready..."
+          until pg_isready -h $PGHOST -p $PGPORT -U $PGUSER; do
+            echo "PostgreSQL is not ready yet..."
+            sleep 2
+          done
+          
+          echo "PostgreSQL is ready. Initializing database..."
+          psql -f /scripts/init-database.sql
+          
+          echo "Database initialization completed successfully."
+        volumeMounts:
+        - name: init-scripts
+          mountPath: /scripts
+          readOnly: true
+        resources:
+          requests:
+            memory: "64Mi"
+            cpu: "100m"
+          limits:
+            memory: "128Mi"
+            cpu: "200m"
+      volumes:
+      - name: init-scripts
+        configMap:
+          name: postgres-init-config
+      restartPolicy: OnFailure
+  backoffLimit: 3
+---
+# Service to connect to existing PostgreSQL (if not already available)
+apiVersion: v1
+kind: Service
+metadata:
+  name: postgres
+  namespace: securepaste
+  labels:
+    app: postgres
+    component: database-external
+spec:
+  type: ClusterIP
+  ports:
+  - port: 5432
+    targetPort: 5432
+    protocol: TCP
+    name: postgres
+  # This service will need to be configured to point to your existing PostgreSQL
+  # You may need to create an Endpoints resource or use ExternalName service
+  # depending on how your PostgreSQL is deployed
+---
+# If your PostgreSQL is in a different namespace, you might need an ExternalName service
+# Uncomment and modify this if needed:
+#
+# apiVersion: v1
+# kind: Service
+# metadata:
+#   name: postgres
+#   namespace: securepaste
+# spec:
+#   type: ExternalName
+#   externalName: postgres.default.svc.cluster.local  # Adjust namespace as needed
+#   ports:
+#   - port: 5432
+#     targetPort: 5432
+#     protocol: TCP
