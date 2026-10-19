@@ -1,3 +1,7 @@
+<p align="center">
+  <img src="assets/logo.png" alt="Secure Paste logo" width="180">
+</p>
+
 # SecurePaste
 
 A secure, feature-rich pastebin service built with Spring Boot, offering both REST API and web UI functionality. Share code snippets, text, and documents with advanced security features including password protection, expiration times, and visibility controls.
