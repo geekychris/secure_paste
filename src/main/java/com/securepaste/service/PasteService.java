@@ -70,9 +70,9 @@ public class PasteService {
     }
 
     /**
-     * Retrieve a paste by ID.
+     * Retrieve a paste by ID. Not read-only: it increments the view count,
+     * which PostgreSQL refuses inside a read-only transaction (H2 allows it).
      */
-    @Transactional(readOnly = true)
     public PasteResponse getPaste(String id, String password) {
         Paste paste = findPasteById(id);
         
