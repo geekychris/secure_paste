@@ -48,12 +48,35 @@ public class PasteController {
      * Retrieve a paste by ID.
      */
     @GetMapping("/{id}")
-    @Operation(summary = "Get paste by ID", description = "Retrieves a paste by its unique identifier")
+    @Operation(summary = "Get paste by ID", description = "Retrieves a paste by its unique identifier. "
+            + "For a view-limited paste (maxViews set) it returns metadata only (revealRequired=true, no content) "
+            + "and uses no view; POST /api/pastes/{id}/reveal returns the content.")
     public ResponseEntity<PasteResponse> getPaste(
             @Parameter(description = "Paste ID") @PathVariable String id,
             @Parameter(description = "Password for protected pastes") @RequestParam(required = false) String password) {
         PasteResponse response = pasteService.getPaste(id, password);
         return ResponseEntity.ok(response);
+    }
+
+    /**
+     * Reveal a paste's content, using one view. For a view-limited paste the
+     * paste is deleted when this was its last allowed view (burned=true).
+     * The password can come as a query parameter or a JSON body
+     * {"password": "..."}; a wrong one uses no view.
+     */
+    @PostMapping("/{id}/reveal")
+    @Operation(summary = "Reveal paste content", description = "Returns the content and uses one view. "
+            + "When the last allowed view of a view-limited paste is served the paste is deleted (burned=true); "
+            + "further reveals return 404. A wrong password (403) or an expired paste (404) uses no view.")
+    public ResponseEntity<PasteResponse> revealPaste(
+            @Parameter(description = "Paste ID") @PathVariable String id,
+            @Parameter(description = "Password for protected pastes") @RequestParam(required = false) String password,
+            @RequestBody(required = false) Map<String, String> body) {
+        if (password == null && body != null) {
+            password = body.get("password");
+        }
+        PasteResponse response = pasteService.revealPaste(id, password);
+        return ResponseEntity.ok().header("Cache-Control", "no-store").body(response);
     }
 
     /**

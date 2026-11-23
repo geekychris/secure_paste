@@ -13,13 +13,14 @@ A secure, feature-rich pastebin service built with Spring Boot, offering both RE
 - **Multiple Visibility Levels**: Public, Unlisted, and Private pastes
 - **Password Protection**: Secure sensitive pastes with optional passwords
 - **Automatic Expiration**: Set pastes to automatically expire after a specified time
+- **Burn After Reading / View Limits**: A paste can allow a fixed number of views (`maxViews`; 1 = burn after reading). It opens on a "tap to reveal" page, so link previews never use a view, and it is deleted with its last view (see [View-limited pastes](#-view-limited-burn-after-reading-pastes))
 - **Syntax Highlighting**: Support for multiple programming languages
 - **View Tracking**: Monitor paste view counts
 - **Search Functionality**: Search pastes by title or content
 
 ### Security Features
 - **BCrypt Password Hashing**: Secure password storage
-- **CSRF Protection**: Cross-site request forgery protection
+- **CSRF Protection**: On the browser form POSTs (the Reveal button, login, logout); the stateless JSON API under `/api/**` is exempt (see [Security Configuration](#security-configuration))
 - **Rate Limiting**: API rate limiting with nginx configuration
 - **Input Validation**: Comprehensive validation of all inputs
 - **XSS Protection**: Content sanitization and security headers
@@ -323,9 +324,12 @@ Content-Type: application/json
     "authorEmail": "john@example.com",
     "visibility": "PUBLIC",
     "expirationMinutes": 60,
-    "password": "secret123"
+    "password": "secret123",
+    "maxViews": 1
 }
 ```
+
+`maxViews` is optional (1 to 1000); leave it out for an unlimited paste.
 
 **Response**
 ```json
@@ -348,6 +352,23 @@ Content-Type: application/json
 ```http
 GET /api/pastes/{id}?password=secret123
 ```
+
+For an unlimited paste this returns the content and counts a view. For a
+view-limited paste it returns **metadata only** (`"revealRequired": true`, no
+`content`, and no `title` if it is password protected) and uses no view: use
+reveal.
+
+##### Reveal Paste (uses one view)
+```http
+POST /api/pastes/{id}/reveal?password=secret123
+```
+or with the password in a JSON body: `{"password": "secret123"}`.
+
+Returns the paste with its content and uses one view. `viewsRemaining` says how
+many are left; `"burned": true` means this was the last one and the paste has
+been deleted. After that, reveal and GET return `404`. A wrong password (`403`)
+or an expired paste (`404`) uses no view. It works on unlimited pastes too,
+where it simply counts a view.
 
 ##### Update Paste
 ```http
@@ -405,11 +426,18 @@ GET /api/pastes/stats
     "visibility": "PUBLIC|UNLISTED|PRIVATE",
     "viewCount": 0,
     "passwordProtected": false,
+    "maxViews": null,
+    "viewsRemaining": null,
+    "revealRequired": false,
+    "burned": false,
     "createdAt": "2024-01-15T10:30:00",
     "updatedAt": "2024-01-15T10:30:00",
     "expiresAt": "2024-01-15T11:30:00"
 }
 ```
+
+`content` is `null` where it is withheld: a view-limited paste read with GET,
+and password-protected pastes in listings and in the response to an update.
 
 #### Paginated Response
 ```json
@@ -447,6 +475,40 @@ GET /api/pastes/stats
 - `403 Forbidden`: Access denied (e.g., wrong password)
 - `404 Not Found`: Resource not found
 - `500 Internal Server Error`: Server error
+
+## 🔥 View-limited (burn after reading) pastes
+
+A paste created with `maxViews` (in the web form: **Views allowed** = 1, 3 or
+10; the default is Unlimited) can be revealed that many times and is then
+deleted.
+
+- **Tap to reveal.** Opening `/paste/{id}` of a limited paste shows a page that
+  says "This paste can be viewed N more time(s); viewing it will use one" with
+  a **Reveal** button. That page holds no content and no title, and its
+  `<title>` and Open Graph tags are generic, so link previews (iMessage, Slack,
+  mail scanners), which only GET the URL, never use a view or see the content.
+  Reveal is a POST (CSRF protected); it shows the content with "This paste has
+  now been deleted" or "N views left", and a Copy button.
+- **API.** `GET /api/pastes/{id}` returns metadata only; `POST
+  /api/pastes/{id}/reveal` uses a view and returns the content.
+- **Exactly N.** The reveal locks the paste's row (`SELECT ... FOR UPDATE`)
+  for its transaction, and the last allowed view deletes the row in that same
+  transaction. Of two simultaneous readers of a one-use paste, one gets the
+  content and the other gets `404`.
+- **With a password or expiry.** A wrong password, or an expired paste, uses no
+  view.
+- Limited pastes never appear in the public list, recent list, language list
+  or search.
+
+### Database migration
+
+The feature adds one nullable column, `pastes.max_views`; existing rows are
+`NULL`, meaning unlimited, so existing pastes are unaffected. Profiles with
+`ddl-auto: update` (`docker`, `kubernetes`) add it on startup. The
+`production` profile uses `ddl-auto: validate`, so run
+[`db/migrations/V2__max_views.sql`](db/migrations/V2__max_views.sql) (an
+idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`) before starting the new
+version there.
 
 ## 💻 Usage Examples
 
@@ -490,6 +552,13 @@ curl "http://localhost:8080/api/pastes/public?size=5"
 
 # Search pastes
 curl "http://localhost:8080/api/pastes/search?q=hello"
+
+# A one-use (burn after reading) paste
+id=$(curl -s -X POST "http://localhost:8080/api/pastes" -H "Content-Type: application/json" \
+  -d '{"title":"db password","content":"s3cr3t","visibility":"UNLISTED","maxViews":1}' | jq -r .id)
+curl "http://localhost:8080/api/pastes/$id"                 # metadata only, uses nothing
+curl -X POST "http://localhost:8080/api/pastes/$id/reveal"  # the content; the paste is now deleted
+curl -X POST "http://localhost:8080/api/pastes/$id/reveal"  # 404
 ```
 
 See `examples/curl_examples.sh` for comprehensive examples.
@@ -685,7 +754,8 @@ server {
 
 ### Security Features
 - **Password Hashing**: BCrypt with configurable strength
-- **CSRF Protection**: Enabled for all state-changing operations
+- **CSRF Protection**: On the browser form POSTs (see below)
+- **Referrer Policy**: `no-referrer`, so paste URLs aren't sent to other sites
 - **XSS Prevention**: Content sanitization and CSP headers
 - **SQL Injection Prevention**: Parameterized queries via JPA
 - **Rate Limiting**: Nginx-based rate limiting
@@ -693,24 +763,22 @@ server {
 - **Security Headers**: HSTS, X-Frame-Options, etc.
 
 ### Security Configuration
-```java
-@Configuration
-@EnableWebSecurity
-public class SecurityConfig {
-    @Bean
-    public PasswordEncoder passwordEncoder() {
-        return new BCryptPasswordEncoder(12);
-    }
-    
-    @Bean
-    public SecurityFilterChain filterChain(HttpSecurity http) {
-        return http
-            .csrf(csrf -> csrf.ignoringRequestMatchers("/api/**"))
-            .headers(headers -> headers.frameOptions().sameOrigin())
-            .build();
-    }
-}
-```
+
+`config/SecurityConfig` enables CSRF protection for the browser form POSTs:
+the Reveal button of a view-limited paste (`POST /paste/{id}/reveal`), login and
+logout. The token is kept in a cookie (`CookieCsrfTokenRepository`, double
+submit), so no server session is needed. Thymeleaf adds the hidden `_csrf`
+field to forms automatically.
+
+`/api/**` is exempt. It is a stateless JSON API, used by scripts and by the
+pages' own `fetch()` calls, with no cookie or session authentication, so a
+forged cross-site request carries no authority the attacker doesn't already
+have: anyone who knows a paste id can call the API directly. The H2 console is
+exempt too (it can't send the token; keep it off outside development).
+
+Note that the app has no user accounts: anyone who can reach it can create,
+update and delete pastes. Put it behind a sign-in proxy if it is reachable
+beyond a trusted network.
 
 ### Best Practices
 - Regular security updates

@@ -39,6 +39,14 @@ public class PasteCreateRequest {
     @Size(max = 100, message = "Password must not exceed 100 characters")
     private String password;
 
+    /**
+     * Number of times the content may be revealed before the paste is
+     * deleted; 1 is "burn after reading". Null (the default) is unlimited.
+     */
+    @Min(value = 1, message = "maxViews must be at least 1")
+    @Max(value = 1000, message = "maxViews must not exceed 1000")
+    private Integer maxViews;
+
     // Constructors
     public PasteCreateRequest() {}
 
@@ -112,6 +120,14 @@ public class PasteCreateRequest {
         this.password = password;
     }
 
+    public Integer getMaxViews() {
+        return maxViews;
+    }
+
+    public void setMaxViews(Integer maxViews) {
+        this.maxViews = maxViews;
+    }
+
     @Override
     public String toString() {
         return "PasteCreateRequest{" +
@@ -120,6 +136,7 @@ public class PasteCreateRequest {
                 ", authorName='" + authorName + '\'' +
                 ", visibility=" + visibility +
                 ", expirationMinutes=" + expirationMinutes +
+                ", maxViews=" + maxViews +
                 ", hasPassword=" + (password != null && !password.isEmpty()) +
                 '}';
     }

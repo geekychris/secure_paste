@@ -4,7 +4,9 @@ import com.securepaste.entity.Paste;
 import com.securepaste.entity.Visibility;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
+import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Lock;
 import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
@@ -34,6 +36,7 @@ public interface PasteRepository extends JpaRepository<Paste, String> {
      * Find all public, non-deleted, non-expired pastes.
      */
     @Query("SELECT p FROM Paste p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' " +
+           "AND p.maxViews IS NULL " +
            "AND (p.expiresAt IS NULL OR p.expiresAt > :now) ORDER BY p.createdAt DESC")
     Page<Paste> findPublicAndActive(@Param("now") LocalDateTime now, Pageable pageable);
 
@@ -44,9 +47,20 @@ public interface PasteRepository extends JpaRepository<Paste, String> {
     Optional<Paste> findByIdAndNotDeleted(@Param("id") String id);
 
     /**
+     * Find a paste by ID and lock its row (SELECT ... FOR UPDATE) until the
+     * transaction ends. revealPaste uses it so that concurrent reveals of a
+     * view-limited paste run one after another: the second waits, then sees
+     * the decremented count, or no row at all once the first has deleted it.
+     */
+    @Lock(LockModeType.PESSIMISTIC_WRITE)
+    @Query("SELECT p FROM Paste p WHERE p.id = :id AND p.isDeleted = false")
+    Optional<Paste> findByIdForUpdate(@Param("id") String id);
+
+    /**
      * Search pastes by title or content containing the search term.
      */
     @Query("SELECT p FROM Paste p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' " +
+           "AND p.maxViews IS NULL AND p.passwordHash IS NULL " +
            "AND (p.expiresAt IS NULL OR p.expiresAt > :now) " +
            "AND (LOWER(p.title) LIKE LOWER(CONCAT('%', :searchTerm, '%')) " +
            "OR LOWER(p.content) LIKE LOWER(CONCAT('%', :searchTerm, '%'))) " +
@@ -59,6 +73,7 @@ public interface PasteRepository extends JpaRepository<Paste, String> {
      * Find pastes by programming language.
      */
     @Query("SELECT p FROM Paste p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' " +
+           "AND p.maxViews IS NULL " +
            "AND (p.expiresAt IS NULL OR p.expiresAt > :now) " +
            "AND LOWER(p.language) = LOWER(:language) ORDER BY p.createdAt DESC")
     Page<Paste> findByLanguageAndActive(@Param("language") String language, 
@@ -117,6 +132,7 @@ public interface PasteRepository extends JpaRepository<Paste, String> {
      * Find recent pastes (last 24 hours).
      */
     @Query("SELECT p FROM Paste p WHERE p.isDeleted = false AND p.visibility = 'PUBLIC' " +
+           "AND p.maxViews IS NULL " +
            "AND p.createdAt > :since AND (p.expiresAt IS NULL OR p.expiresAt > :now) " +
            "ORDER BY p.createdAt DESC")
     Page<Paste> findRecentPublicPastes(@Param("since") LocalDateTime since, 
