@@ -376,20 +376,20 @@
                 <label>Paste ID:</label>
                 <div class="result-value">
                     <input type="text" id="pasteId" readonly>
-                    <button class="btn btn-copy" onclick="copyToClipboard('pasteId')">Copy ID</button>
+                    <button class="btn btn-copy" type="button" data-copy="pasteId">Copy ID</button>
                 </div>
             </div>
             <div class="result-item">
                 <label>Paste URL:</label>
                 <div class="result-value">
                     <input type="text" id="pasteUrl" readonly>
-                    <button class="btn btn-copy" onclick="copyToClipboard('pasteUrl')">Copy URL</button>
+                    <button class="btn btn-copy" type="button" data-copy="pasteUrl">Copy URL</button>
                 </div>
             </div>
             <p id="viewsNote" class="views-note" style="display: none;"></p>
             <div class="result-actions">
                 <a id="viewPasteLink" href="#" class="btn" target="_blank">View Paste</a>
-                <button class="btn btn-secondary" onclick="createAnotherPaste()">Create Another Paste</button>
+                <button class="btn btn-secondary" type="button" id="createAnotherBtn">Create Another Paste</button>
             </div>
         </div>
 
@@ -401,192 +401,6 @@
         </div>
     </div>
 
-    <script>
-        const API_BASE = '/api/pastes';
-        let APP_CONFIG = null;
-
-        // Initialize application configuration
-        async function initializeApp() {
-            try {
-                const response = await fetch('/api/config');
-                if (response.ok) {
-                    APP_CONFIG = await response.json();
-                    console.log('App config loaded:', APP_CONFIG);
-                } else {
-                    console.warn('Failed to load app config, using fallback');
-                    APP_CONFIG = { baseUrl: window.location.origin };
-                }
-            } catch (error) {
-                console.error('Error loading app config:', error);
-                APP_CONFIG = { baseUrl: window.location.origin };
-            }
-        }
-
-        // Get the configured base URL
-        function getBaseUrl() {
-            return APP_CONFIG ? APP_CONFIG.baseUrl : window.location.origin;
-        }
-
-        // Show alert message
-        function showAlert(message, type = 'success') {
-            const alert = document.getElementById('alert');
-            alert.className = `alert alert-${type}`;
-            alert.textContent = message;
-            alert.style.display = 'block';
-            setTimeout(() => {
-                alert.style.display = 'none';
-            }, 5000);
-        }
-
-        // Show/hide loading
-        function setLoading(show) {
-            document.getElementById('loading').style.display = show ? 'block' : 'none';
-        }
-        
-        // Show paste result section
-        function showPasteResult(result) {
-            const pasteUrl = `${getBaseUrl()}/paste/${result.id}`;
-            
-            document.getElementById('pasteId').value = result.id;
-            document.getElementById('pasteUrl').value = pasteUrl;
-            document.getElementById('viewPasteLink').href = pasteUrl;
-
-            const viewsNote = document.getElementById('viewsNote');
-            if (result.maxViews) {
-                viewsNote.textContent = result.maxViews === 1
-                    ? 'Burn after reading: this link can be revealed once, then the paste is deleted. Opening it shows a Reveal page first, so checking the link yourself uses nothing until you press Reveal.'
-                    : `This link can be revealed ${result.maxViews} times, then the paste is deleted. Opening it shows a Reveal page first; only Reveal uses a view.`;
-                viewsNote.style.display = 'block';
-            } else {
-                viewsNote.style.display = 'none';
-            }
-
-            document.getElementById('resultSection').style.display = 'block';
-            document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
-        }
-        
-        // Copy text to clipboard
-        async function copyToClipboard(elementId) {
-            const element = document.getElementById(elementId);
-            const text = element.value;
-            
-            try {
-                await navigator.clipboard.writeText(text);
-                
-                // Visual feedback
-                const button = element.nextElementSibling;
-                const originalText = button.textContent;
-                button.textContent = 'Copied!';
-                button.style.background = '#27ae60';
-                
-                setTimeout(() => {
-                    button.textContent = originalText;
-                    button.style.background = '';
-                }, 2000);
-            } catch (err) {
-                // Fallback for older browsers
-                element.select();
-                document.execCommand('copy');
-                showAlert('Copied to clipboard!', 'success');
-            }
-        }
-        
-        // Create another paste (hide result section)
-        function createAnotherPaste() {
-            document.getElementById('resultSection').style.display = 'none';
-            document.getElementById('title').focus();
-        }
-
-        // Handle form submission
-        document.getElementById('pasteForm').addEventListener('submit', async (e) => {
-            e.preventDefault();
-            
-            const formData = new FormData(e.target);
-            const data = {};
-            
-            // Convert form data to object
-            for (let [key, value] of formData.entries()) {
-                if (value.trim()) {
-                    if (key === 'expirationMinutes' || key === 'maxViews') {
-                        data[key] = parseInt(value);
-                    } else {
-                        data[key] = value;
-                    }
-                }
-            }
-
-            try {
-                setLoading(true);
-                
-                const response = await fetch(API_BASE, {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json',
-                    },
-                    body: JSON.stringify(data)
-                });
-
-                if (!response.ok) {
-                    throw new Error(`HTTP error! status: ${response.status}`);
-                }
-
-                const result = await response.json();
-                
-                // Show persistent result section
-                showPasteResult(result);
-                
-                // Clear form
-                document.getElementById('pasteForm').reset();
-                
-                // Refresh recent pastes
-                loadRecentPastes();
-
-            } catch (error) {
-                console.error('Error creating paste:', error);
-                showAlert(`Error creating paste: ${error.message}`, 'error');
-            } finally {
-                setLoading(false);
-            }
-        });
-
-        // Load recent public pastes
-        async function loadRecentPastes() {
-            try {
-                const response = await fetch(`${API_BASE}/public?size=5`);
-                if (!response.ok) {
-                    throw new Error('Failed to fetch recent pastes');
-                }
-                
-                const data = await response.json();
-                const container = document.getElementById('recentPastes');
-                
-                if (data.content && data.content.length > 0) {
-                    container.innerHTML = data.content.map(paste => `
-                        <div class="paste-item">
-                            <a href="/paste/${paste.id}" class="paste-title">${paste.title}</a>
-                            <div class="paste-meta">
-                                ${paste.language ? `Language: ${paste.language} | ` : ''}
-                                Author: ${paste.authorName || 'Anonymous'} | 
-                                Views: ${paste.viewCount} | 
-                                Created: ${new Date(paste.createdAt).toLocaleString()}
-                                ${paste.expiresAt ? ` | Expires: ${new Date(paste.expiresAt).toLocaleString()}` : ''}
-                            </div>
-                        </div>
-                    `).join('');
-                } else {
-                    container.innerHTML = '<p>No public pastes found.</p>';
-                }
-            } catch (error) {
-                console.error('Error loading recent pastes:', error);
-                document.getElementById('recentPastes').innerHTML = '<p>Error loading recent pastes.</p>';
-            }
-        }
-
-        // Initialize app and load recent pastes on page load
-        document.addEventListener('DOMContentLoaded', async () => {
-            await initializeApp();
-            loadRecentPastes();
-        });
-    </script>
+    <script src="/js/index.js"></script>
 </body>
 </html>

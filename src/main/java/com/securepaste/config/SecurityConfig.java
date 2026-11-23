@@ -8,7 +8,11 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.csrf.CookieCsrfTokenRepository;
+import org.springframework.security.web.header.writers.DelegatingRequestMatcherHeaderWriter;
 import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWriter;
+import org.springframework.security.web.header.writers.StaticHeadersWriter;
+import org.springframework.security.web.util.matcher.AntPathRequestMatcher;
+import org.springframework.security.web.util.matcher.NegatedRequestMatcher;
 
 /**
  * Security configuration for SecurePaste.
@@ -18,6 +22,12 @@ import org.springframework.security.web.header.writers.ReferrerPolicyHeaderWrite
 @Configuration
 @EnableWebSecurity
 public class SecurityConfig {
+
+    /** Sent on every response except the H2 console's. */
+    static final String CONTENT_SECURITY_POLICY =
+            "default-src 'self'; script-src 'self'; style-src 'self' 'unsafe-inline'; "
+            + "img-src 'self' data:; object-src 'none'; base-uri 'self'; "
+            + "form-action 'self'; frame-ancestors 'self'";
 
     /**
      * Password encoder bean for hashing passwords.
@@ -86,6 +96,15 @@ public class SecurityConfig {
                 .frameOptions(frameOptions -> frameOptions.sameOrigin()) // Allow H2 console frames
                 // Paste URLs are secrets: don't send them to other sites.
                 .referrerPolicy(referrer -> referrer.policy(ReferrerPolicyHeaderWriter.ReferrerPolicy.NO_REFERRER))
+                // Pastes are untrusted text: even if something renders one as
+                // HTML, no injected script may run. The pages keep their
+                // script in /js/*.js (no inline script or on* handlers);
+                // inline styles remain, so style-src allows them. The H2
+                // console (development only) needs inline script, so it is
+                // left out.
+                .addHeaderWriter(new DelegatingRequestMatcherHeaderWriter(
+                    new NegatedRequestMatcher(new AntPathRequestMatcher("/h2-console/**")),
+                    new StaticHeadersWriter("Content-Security-Policy", CONTENT_SECURITY_POLICY)))
             )
             .formLogin(form -> form
                 .defaultSuccessUrl("/", true)
