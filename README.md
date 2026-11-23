@@ -756,7 +756,7 @@ server {
 - **Password Hashing**: BCrypt with configurable strength
 - **CSRF Protection**: On the browser form POSTs (see below)
 - **Referrer Policy**: `no-referrer`, so paste URLs aren't sent to other sites
-- **XSS Prevention**: Content sanitization and CSP headers
+- **XSS Prevention**: Paste fields are always rendered as text (Thymeleaf `th:text` on the server, `textContent` in the pages' scripts, which live in `static/js/`), and a `Content-Security-Policy` (`default-src 'self'; script-src 'self'; object-src 'none'`, inline styles allowed) forbids inline script everywhere except the development H2 console
 - **SQL Injection Prevention**: Parameterized queries via JPA
 - **Rate Limiting**: Nginx-based rate limiting
 - **HTTPS Enforcement**: SSL/TLS configuration
