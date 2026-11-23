@@ -27,7 +27,7 @@ A secure, feature-rich pastebin service built with Spring Boot, offering both RE
 
 ### Technical Features
 - **RESTful API**: Complete REST API with OpenAPI documentation
-- **Web Interface**: Modern Vaadin Flow UI
+- **Web Interface**: Thymeleaf pages (`templates/`) over the REST API
 - **Database Support**: H2 (development) and PostgreSQL (production)
 - **Containerization**: Docker and Docker Compose support
 - **Kubernetes Ready**: Complete K8s manifests included
@@ -52,7 +52,7 @@ A secure, feature-rich pastebin service built with Spring Boot, offering both RE
     ┌────────────────────────▼─────────────────────────────────┐
     │              Spring Boot Application                      │
     │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐│
-    │  │  Vaadin UI      │  │   REST API      │  │  Security   ││
+    │  │  Thymeleaf UI   │  │   REST API      │  │  Security   ││
     │  │   Components    │  │  Controllers    │  │   Layer     ││
     │  └─────────────────┘  └─────────────────┘  └─────────────┘│
     │  ┌─────────────────────────────────────────────────────────┐│
@@ -86,7 +86,7 @@ A secure, feature-rich pastebin service built with Spring Boot, offering both RE
 - **OpenAPI 3**: API documentation
 
 #### Frontend
-- **Vaadin Flow 24**: Modern web UI framework
+- **Thymeleaf**: Server-rendered pages; the browser talks to the REST API with `fetch()`
 - **Progressive Web App**: PWA support
 - **Responsive Design**: Mobile-friendly interface
 ![img.png](doc_images/img.png)
@@ -878,4 +878,4 @@ docker-compose logs postgres
 
 ---
 
-*Built with ❤️ using Java, Spring Boot, and Vaadin Flow*
+*Built with ❤️ using Java, Spring Boot, and Thymeleaf*
