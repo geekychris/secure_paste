@@ -227,6 +227,20 @@
             font-size: 1.3rem;
         }
         
+        .views-hint {
+            color: #7f8c8d;
+            font-size: 13px;
+            margin-top: 28px;
+        }
+
+        .views-note {
+            background: #fdebd0;
+            color: #873600;
+            padding: 12px 15px;
+            border-radius: 6px;
+            margin-top: 10px;
+        }
+
         @keyframes spin {
             0% { transform: rotate(0deg); }
             100% { transform: rotate(360deg); }
@@ -329,6 +343,21 @@
                     </div>
                 </div>
 
+                <div class="form-row">
+                    <div class="form-group">
+                        <label for="maxViews">Views allowed</label>
+                        <select id="maxViews" name="maxViews">
+                            <option value="" selected>Unlimited</option>
+                            <option value="1">1: burn after reading</option>
+                            <option value="3">3 views</option>
+                            <option value="10">10 views</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <p class="views-hint">A limited paste opens on a "Reveal" page: opening the link (or a chat app previewing it) uses nothing, and each Reveal uses one view. After the last one it is deleted. Limited pastes never appear in the public list.</p>
+                    </div>
+                </div>
+
                 <div class="form-group">
                     <button type="submit" class="btn">Create Paste</button>
                     <button type="reset" class="btn btn-secondary">Clear Form</button>
@@ -357,6 +386,7 @@
                     <button class="btn btn-copy" onclick="copyToClipboard('pasteUrl')">Copy URL</button>
                 </div>
             </div>
+            <p id="viewsNote" class="views-note" style="display: none;"></p>
             <div class="result-actions">
                 <a id="viewPasteLink" href="#" class="btn" target="_blank">View Paste</a>
                 <button class="btn btn-secondary" onclick="createAnotherPaste()">Create Another Paste</button>
@@ -420,7 +450,17 @@
             document.getElementById('pasteId').value = result.id;
             document.getElementById('pasteUrl').value = pasteUrl;
             document.getElementById('viewPasteLink').href = pasteUrl;
-            
+
+            const viewsNote = document.getElementById('viewsNote');
+            if (result.maxViews) {
+                viewsNote.textContent = result.maxViews === 1
+                    ? 'Burn after reading: this link can be revealed once, then the paste is deleted. Opening it shows a Reveal page first, so checking the link yourself uses nothing until you press Reveal.'
+                    : `This link can be revealed ${result.maxViews} times, then the paste is deleted. Opening it shows a Reveal page first; only Reveal uses a view.`;
+                viewsNote.style.display = 'block';
+            } else {
+                viewsNote.style.display = 'none';
+            }
+
             document.getElementById('resultSection').style.display = 'block';
             document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
         }
@@ -467,7 +507,7 @@
             // Convert form data to object
             for (let [key, value] of formData.entries()) {
                 if (value.trim()) {
-                    if (key === 'expirationMinutes') {
+                    if (key === 'expirationMinutes' || key === 'maxViews') {
                         data[key] = parseInt(value);
                     } else {
                         data[key] = value;

@@ -1,0 +1,128 @@
+<!DOCTYPE html>
+<html lang="en" xmlns:th="http://www.thymeleaf.org">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- Deliberately generic: link previews read this page, so nothing here
+         (title, meta or Open Graph tags) may describe the paste. -->
+    <meta name="robots" content="noindex, nofollow">
+    <meta name="referrer" content="no-referrer">
+    <meta property="og:title" content="SecurePaste">
+    <meta property="og:description" content="A paste has been shared with you.">
+    <title>SecurePaste</title>
+    <style>
+        * { margin: 0; padding: 0; box-sizing: border-box; }
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #f5f7fa;
+            color: #333;
+            line-height: 1.6;
+        }
+        .container { max-width: 1200px; margin: 0 auto; padding: 20px; }
+        .header { text-align: center; margin-bottom: 30px; }
+        .header h1 { color: #2c3e50; font-size: 2rem; margin-bottom: 10px; }
+        .back-link { display: inline-block; margin-bottom: 20px; color: #3498db; text-decoration: none; font-weight: 500; }
+        .back-link:hover { text-decoration: underline; }
+        .card {
+            background: white;
+            border-radius: 10px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            overflow: hidden;
+        }
+        .interstitial { padding: 40px 30px; text-align: center; }
+        .interstitial h2 { color: #2c3e50; margin-bottom: 15px; }
+        .interstitial p { margin-bottom: 15px; }
+        .interstitial input[type=password] {
+            padding: 10px; border: 2px solid #e1e8ed; border-radius: 4px;
+            font-size: 16px; width: 100%; max-width: 320px; margin-bottom: 15px;
+        }
+        .uses { font-size: 1.1rem; font-weight: 600; }
+        .hint { color: #7f8c8d; font-size: 0.9rem; }
+        .btn {
+            background: #3498db; color: white; padding: 10px 24px; border: none;
+            border-radius: 4px; cursor: pointer; font-size: 16px; text-decoration: none;
+        }
+        .btn:hover { background: #2980b9; }
+        .btn-reveal { background: #e67e22; font-size: 18px; padding: 12px 36px; }
+        .btn-reveal:hover { background: #d35400; }
+        .paste-meta { background: #34495e; color: white; padding: 20px; }
+        .paste-title { font-size: 1.5rem; margin-bottom: 10px; overflow-wrap: anywhere; }
+        .code-block {
+            background: #f8f9fa; padding: 20px; font-family: 'Courier New', monospace;
+            font-size: 14px; line-height: 1.5; white-space: pre-wrap; word-wrap: break-word;
+            overflow-x: auto; max-height: 70vh; overflow-y: auto;
+        }
+        .actions { padding: 20px; background: #ecf0f1; display: flex; gap: 10px; flex-wrap: wrap; }
+        .notice { padding: 15px 20px; font-weight: 600; }
+        .notice-burned { background: #fdebd0; color: #873600; }
+        .notice-left { background: #d6eaf8; color: #1b4f72; }
+        .error { color: #e74c3c; background: #fadbd8; padding: 15px; border-radius: 4px; margin-bottom: 20px; }
+        @media (max-width: 768px) { .container { padding: 10px; } }
+    </style>
+</head>
+<body>
+<div class="container">
+    <div class="header"><h1>🔒 SecurePaste</h1></div>
+    <a href="/" class="back-link">← Back to Home</a>
+
+    <div th:if="${error}" class="error" th:text="${error}">error</div>
+
+    <!-- Before reveal: no content, no title. -->
+    <div th:if="${state == 'interstitial'}" class="card interstitial">
+        <h2>A paste has been shared with you</h2>
+        <p class="uses" th:with="n=${paste.viewsRemaining}"
+           th:text="|This paste can be viewed ${n} more ${n == 1 ? 'time' : 'times'}; viewing it will use one.|">
+            This paste can be viewed N more time(s); viewing it will use one.</p>
+        <p class="hint" th:if="${paste.viewsRemaining == 1}">After you reveal it, it is deleted. Copy anything you need before you leave the page.</p>
+        <form method="post" th:action="@{/paste/{id}/reveal(id=${id})}">
+            <div th:if="${paste.passwordProtected}">
+                <p>This paste is password protected.</p>
+                <input type="password" name="password" placeholder="Password" required autocomplete="off" autofocus>
+            </div>
+            <button type="submit" class="btn btn-reveal">Reveal</button>
+        </form>
+        <p class="hint" th:if="${paste.expiresAt}" style="margin-top: 15px"
+           th:text="|It expires ${#temporals.format(paste.expiresAt, 'yyyy-MM-dd HH:mm')}.|">expires</p>
+    </div>
+
+    <!-- After reveal. -->
+    <div th:if="${state == 'revealed'}" class="card">
+        <div class="paste-meta">
+            <div class="paste-title" th:text="${paste.title}">title</div>
+            <div th:if="${paste.language}" th:text="|Language: ${paste.language}|">language</div>
+        </div>
+        <div th:if="${paste.burned}" class="notice notice-burned">This paste has now been deleted. This was its last view: reloading or reopening the link won't show it again.</div>
+        <div th:if="${!paste.burned and paste.viewsRemaining != null}" class="notice notice-left"
+             th:with="n=${paste.viewsRemaining}"
+             th:text="|${n} ${n == 1 ? 'view' : 'views'} left.|">N views left.</div>
+        <pre id="pasteContent" class="code-block" th:text="${paste.content}">content</pre>
+        <div class="actions">
+            <button class="btn" id="copyBtn" type="button">Copy Content</button>
+        </div>
+    </div>
+
+    <div th:if="${state == 'gone'}" class="card interstitial">
+        <h2>This paste is gone</h2>
+        <p>It doesn't exist any more: it may have been viewed the maximum number of times, expired, or been deleted.</p>
+    </div>
+</div>
+<script th:if="${state == 'revealed'}">
+    document.getElementById('copyBtn').addEventListener('click', async () => {
+        const text = document.getElementById('pasteContent').textContent;
+        const btn = document.getElementById('copyBtn');
+        try {
+            await navigator.clipboard.writeText(text);
+        } catch (e) {
+            const ta = document.createElement('textarea');
+            ta.value = text;
+            document.body.appendChild(ta);
+            ta.select();
+            document.execCommand('copy');
+            document.body.removeChild(ta);
+        }
+        btn.textContent = 'Copied!';
+        setTimeout(() => { btn.textContent = 'Copy Content'; }, 2000);
+    });
+</script>
+</body>
+</html>

@@ -259,7 +259,7 @@
                 
                 if (!response.ok) {
                     if (response.status === 404) {
-                        throw new Error('Paste not found or has expired');
+                        throw new Error('Paste not found: it may have expired, been deleted, or already been viewed the maximum number of times');
                     }
                     throw new Error(`HTTP error! status: ${response.status}`);
                 }

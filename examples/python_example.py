@@ -9,6 +9,7 @@ using Python and the requests library.
 import requests
 import json
 import time
+import os
 import sys
 from datetime import datetime
 
@@ -32,8 +33,9 @@ class SecurePasteClient:
         Args:
             title (str): Paste title
             content (str): Paste content
-            **kwargs: Optional parameters (language, authorName, authorEmail, 
-                     visibility, expirationMinutes, password)
+            **kwargs: Optional parameters (language, authorName, authorEmail,
+                     visibility, expirationMinutes, password, maxViews;
+                     maxViews=1 is burn after reading)
         
         Returns:
             dict: Created paste information
@@ -79,6 +81,32 @@ class SecurePasteClient:
                 print(f"Response: {e.response.text}")
             return None
     
+    def reveal_paste(self, paste_id, password=None):
+        """
+        Reveal a paste's content, using one view.
+
+        For a view-limited paste (created with maxViews) this is the only way
+        to get the content: get_paste returns metadata only. When the last
+        allowed view is used the response has burned=True and the paste is
+        deleted; after that this returns None (HTTP 404). A wrong password
+        (HTTP 403) uses no view.
+
+        Args:
+            paste_id (str): Paste ID
+            password (str, optional): Password for protected pastes
+
+        Returns:
+            dict: Paste information including content, viewsRemaining, burned
+        """
+        body = {'password': password} if password else None
+        try:
+            response = self.session.post(f"{self.api_base}/{paste_id}/reveal", json=body)
+            response.raise_for_status()
+            return response.json()
+        except requests.RequestException as e:
+            print(f"Error revealing paste {paste_id}: {e}")
+            return None
+
     def update_paste(self, paste_id, **kwargs):
         """
         Update an existing paste
@@ -216,7 +244,7 @@ def print_paste_info(paste):
         return
     
     print(f"ID: {paste['id']}")
-    print(f"Title: {paste['title']}")
+    print(f"Title: {paste.get('title') or '(hidden)'}")
     print(f"Language: {paste.get('language', 'N/A')}")
     print(f"Author: {paste.get('authorName', 'Anonymous')}")
     print(f"Visibility: {paste['visibility']}")
@@ -226,7 +254,12 @@ def print_paste_info(paste):
         print(f"Expires: {paste['expiresAt']}")
     if paste.get('passwordProtected'):
         print("Password Protected: Yes")
-    print(f"Content Preview: {paste['content'][:100]}...")
+    if paste.get('maxViews'):
+        print(f"Views left: {paste.get('viewsRemaining')} of {paste['maxViews']}")
+    if paste.get('content') is not None:
+        print(f"Content Preview: {paste['content'][:100]}...")
+    else:
+        print("Content: withheld (reveal it, or supply the password)")
     print("-" * 50)
 
 
@@ -236,7 +269,7 @@ def main():
     print("=" * 50)
     
     # Initialize client
-    client = SecurePasteClient()
+    client = SecurePasteClient(os.environ.get("SECUREPASTE_URL", "http://localhost:8080"))
     
     # Health check
     print("1. Health Check")
@@ -361,8 +394,42 @@ def main():
             for lang_data in popular_langs[:5]:  # Show top 5
                 print(f"  - {lang_data[0]}: {lang_data[1]} pastes")
     
+    # A one-use (burn after reading) paste
+    print("\n13. Creating a one-use (burn after reading) paste")
+    burn = client.create_paste(
+        title="One-time secret",
+        content="This text can be revealed exactly once.",
+        visibility="UNLISTED",
+        maxViews=1
+    )
+    if burn:
+        print(f"✓ Share {client.base_url}/paste/{burn['id']}")
+        print("  It opens on a Reveal page, so link previews don't use the view.")
+        meta = client.get_paste(burn['id'])
+        print(f"  GET gives metadata only: revealRequired={meta['revealRequired']}, content={meta['content']}")
+        revealed = client.reveal_paste(burn['id'])
+        print(f"✓ Revealed: {revealed['content']!r} (burned={revealed['burned']})")
+        if client.reveal_paste(burn['id']) is None:
+            print("✓ A second reveal is refused: the paste is gone")
+
+    # Three views, with a password
+    print("\n14. A paste that can be revealed three times, with a password")
+    limited = client.create_paste(
+        title="Three views",
+        content="Visible three times.",
+        visibility="UNLISTED",
+        maxViews=3,
+        password="secret123"
+    )
+    if limited:
+        if client.reveal_paste(limited['id'], password="wrong") is None:
+            print("✓ Wrong password refused; no view used")
+        for i in range(3):
+            r = client.reveal_paste(limited['id'], password="secret123")
+            print(f"  Reveal {i + 1}: viewsRemaining={r['viewsRemaining']}, burned={r['burned']}")
+
     # Clean up - delete the test pastes
-    print("\n13. Cleaning up test pastes")
+    print("\n15. Cleaning up test pastes")
     if client.delete_paste(simple_paste_id):
         print("✓ Simple paste deleted")
     if client.delete_paste(protected_paste_id):

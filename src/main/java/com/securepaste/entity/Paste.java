@@ -56,6 +56,15 @@ public class Paste {
     @Column(name = "view_count")
     private Long viewCount = 0L;
 
+    /**
+     * How many times the content may be revealed; null means unlimited.
+     * 1 is "burn after reading". When the last allowed view is served the
+     * row is deleted in the same transaction (PasteService.revealPaste).
+     * A nullable column, so rows written before it existed stay unlimited.
+     */
+    @Column(name = "max_views")
+    private Integer maxViews;
+
     @CreatedDate
     @Column(name = "created_at", nullable = false, updatable = false)
     private LocalDateTime createdAt;
@@ -89,6 +98,20 @@ public class Paste {
 
     public void incrementViewCount() {
         this.viewCount++;
+    }
+
+    /** True when the paste has a view limit (maxViews set). */
+    public boolean isViewLimited() {
+        return maxViews != null;
+    }
+
+    /** Views left before the paste is deleted, or null when unlimited. */
+    public Integer getViewsRemaining() {
+        if (maxViews == null) {
+            return null;
+        }
+        long used = viewCount == null ? 0 : viewCount;
+        return (int) Math.max(0, maxViews - used);
     }
 
     // Getters and Setters
@@ -170,6 +193,14 @@ public class Paste {
 
     public void setViewCount(Long viewCount) {
         this.viewCount = viewCount;
+    }
+
+    public Integer getMaxViews() {
+        return maxViews;
+    }
+
+    public void setMaxViews(Integer maxViews) {
+        this.maxViews = maxViews;
     }
 
     public LocalDateTime getCreatedAt() {

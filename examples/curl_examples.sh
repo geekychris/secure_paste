@@ -56,8 +56,8 @@ extract_json_value() {
     if command -v jq &> /dev/null; then
         echo "$json" | jq -r ".$key"
     else
-        # Fallback without jq (basic extraction)
-        echo "$json" | grep -o "\"$key\":\"[^\"]*" | cut -d'"' -f4
+        # Fallback without jq (basic extraction of strings, numbers, booleans)
+        echo "$json" | grep -o "\"$key\":\"\{0,1\}[^\",}]*" | head -1 | sed -e "s/^\"$key\":\"\{0,1\}//"
     fi
 }
 
@@ -318,8 +318,52 @@ if [ $? -eq 0 ]; then
     fi
 fi
 
+# One-use (burn after reading) paste
+print_section "15. A One-Use (Burn After Reading) Paste"
+burn_paste_data='{
+    "title": "One-time secret",
+    "content": "This text can be revealed exactly once.",
+    "visibility": "UNLISTED",
+    "maxViews": 1
+}'
+echo "curl -X POST \"${API_URL}\" -H \"Content-Type: application/json\" -d '${burn_paste_data}'"
+burn_response=$(curl -s -X POST "${API_URL}" -H "Content-Type: application/json" -d "$burn_paste_data")
+burn_paste_id=$(extract_json_value "$burn_response" "id")
+print_success "One-use paste created with ID: $burn_paste_id"
+print_info "Share ${BASE_URL}/paste/${burn_paste_id}: it opens on a Reveal page, so link previews don't use the view"
+
+echo "curl -s \"${API_URL}/${burn_paste_id}\"   # metadata only; uses no view"
+print_json "$(curl -s "${API_URL}/${burn_paste_id}")"
+
+echo "curl -s -X POST \"${API_URL}/${burn_paste_id}/reveal\"   # the content; the paste is deleted"
+reveal_response=$(curl -s -X POST "${API_URL}/${burn_paste_id}/reveal")
+print_json "$reveal_response"
+if [ "$(extract_json_value "$reveal_response" "burned")" = "true" ]; then
+    print_success "Revealed, and the paste has now been deleted"
+fi
+
+http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/${burn_paste_id}/reveal")
+if [ "$http_code" = "404" ]; then
+    print_success "A second reveal is refused (HTTP $http_code)"
+else
+    print_error "Unexpected response to a second reveal: HTTP $http_code"
+fi
+
+# A paste that allows three reveals, protected by a password
+print_section "16. A Three-View, Password-Protected Paste"
+limited_response=$(curl -s -X POST "${API_URL}" -H "Content-Type: application/json" \
+  -d '{"title":"Three views","content":"Visible three times.","visibility":"UNLISTED","maxViews":3,"password":"secret123"}')
+limited_paste_id=$(extract_json_value "$limited_response" "id")
+http_code=$(curl -s -o /dev/null -w "%{http_code}" -X POST "${API_URL}/${limited_paste_id}/reveal?password=wrong")
+print_info "Wrong password: HTTP $http_code, and no view used"
+for i in 1 2 3; do
+    echo "curl -s -X POST \"${API_URL}/${limited_paste_id}/reveal\" -H 'Content-Type: application/json' -d '{\"password\":\"secret123\"}'"
+    r=$(curl -s -X POST "${API_URL}/${limited_paste_id}/reveal" -H "Content-Type: application/json" -d '{"password":"secret123"}')
+    print_info "Reveal $i: viewsRemaining=$(extract_json_value "$r" "viewsRemaining"), burned=$(extract_json_value "$r" "burned")"
+done
+
 # Delete test pastes
-print_section "15. Cleanup - Deleting Test Pastes"
+print_section "17. Cleanup - Deleting Test Pastes"
 
 if [ -n "$simple_paste_id" ]; then
     echo "curl -X DELETE \"${API_URL}/${simple_paste_id}\""
