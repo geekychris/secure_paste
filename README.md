@@ -17,6 +17,7 @@ A secure, feature-rich pastebin service built with Spring Boot, offering both RE
 - **Syntax Highlighting**: Support for multiple programming languages
 - **View Tracking**: Monitor paste view counts
 - **Search Functionality**: Search pastes by title or content
+- **Email this link**: Send a new paste's link (never its content) to one address, when SMTP is configured (see [Emailing a link](#️-emailing-a-link))
 
 ### Security Features
 - **BCrypt Password Hashing**: Secure password storage
@@ -509,6 +510,68 @@ The feature adds one nullable column, `pastes.max_views`; existing rows are
 [`db/migrations/V2__max_views.sql`](db/migrations/V2__max_views.sql) (an
 idempotent `ALTER TABLE ... ADD COLUMN IF NOT EXISTS`) before starting the new
 version there.
+
+## ✉️ Emailing a link
+
+After creating a paste, the result box offers **Email this link**: type an
+address and **Send**. The button appears only when the server can send mail
+(`GET /api/mail/status` answers `{"enabled": true}`); otherwise nothing
+changes.
+
+**What is sent.** A short plain-text email with the paste's link
+(`<base-url>/paste/<id>`), how many views are left, when it expires, and
+whether it needs a password (which is never in the email). Never the title or
+the content. Sending uses no view.
+
+**API.** `POST /api/pastes/{id}/email` with `{"to": "name@example.com"}`:
+`200 {"sent": true, "to": ...}`, `400` for anything but one plain address,
+`404` for an unknown or expired paste, `429` when rate-limited, `503` when mail
+isn't configured, `502` when the server refused it. Unlike the rest of the
+API it has no CORS header: only SecurePaste's own page calls it.
+
+**Design.**
+- SecurePaste has no accounts: in the lab it sits behind the cloud-stack
+  proxy's passkey sign-in, so whoever can create a paste can email its link.
+  It sends through the SMTP server it is given (`securepaste.mail.*`), not a
+  shared service.
+- **No relay.** One recipient per request, a plain address only (no display
+  name, list, quotes or IP literal), and fixed text the caller can't change
+  beyond the link of an existing paste.
+- **No header injection.** Every header value (recipient, subject, From
+  name) is refused if it contains a line break or another control character.
+- **TLS for signing in.** `tls: starttls` requires the server to offer
+  STARTTLS (`mail.smtp.starttls.required`), `tls: tls` is TLS from the first
+  byte; both verify the server's name. `tls: none` is only for a test catcher
+  such as Mailpit and is refused together with a username.
+- **Secrets.** The password is read from a file (a Kubernetes Secret) for each
+  send, so it is never in the environment or configuration, and placing it
+  needs no restart. It is never logged. The log records the recipient and the
+  result, never the link.
+- **Rate limit.** 20 emails an hour in total and 5 to one address (in
+  memory, per instance).
+
+**Settings** (environment or `securepaste.mail.*`):
+
+| Variable | Default | |
+|---|---|---|
+| `SECUREPASTE_MAIL_HOST` | empty (off) | e.g. `smtp.gmail.com` |
+| `SECUREPASTE_MAIL_PORT` | 587 / 465 / 25 by TLS mode | |
+| `SECUREPASTE_MAIL_TLS` | `starttls` | `starttls`, `tls`, or `none` (test catcher, no sign-in) |
+| `SECUREPASTE_MAIL_USERNAME` | empty | the account; empty means no sign-in |
+| `SECUREPASTE_MAIL_FROM` | the account | Gmail keeps a different From only if it is a verified "Send mail as" alias of the account |
+| `SECUREPASTE_MAIL_FROM_NAME` | `SecurePaste` | |
+| `SECUREPASTE_MAIL_REPLY_TO` | empty | |
+| `SECUREPASTE_MAIL_PASSWORD_FILE` | `/var/run/securepaste/smtp/password` | |
+| `SECUREPASTE_SITE_NAME` | empty | named in the email ("SecurePaste (Belmont)") |
+
+With Google Workspace use `smtp.gmail.com`, port 587, `starttls`, the account
+as username, and an **app password** (Google Account → Security → 2-Step
+Verification → App passwords) in the password file; the spaces Google shows in
+it are ignored. In the lab, cloud-stack's `deploy/securepaste` sets these per
+site and mounts the Secret `securepaste-smtp` (key `password`).
+
+**Tests** use a fake SMTP server (`src/test/.../FakeSmtpServer`), never a real
+provider: `mvn test -Dtest='Mail*'`.
 
 ## 💻 Usage Examples
 

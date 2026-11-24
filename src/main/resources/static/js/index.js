@@ -4,6 +4,10 @@
 
 const API_BASE = '/api/pastes';
 let APP_CONFIG = null;
+// Whether the server can email a link (GET /api/mail/status), and the paste
+// the result section shows.
+let MAIL_ENABLED = false;
+let CURRENT_PASTE_ID = null;
 
 // Initialize application configuration
 async function initializeApp() {
@@ -19,6 +23,12 @@ async function initializeApp() {
     } catch (error) {
         console.error('Error loading app config:', error);
         APP_CONFIG = { baseUrl: window.location.origin };
+    }
+    try {
+        const r = await fetch('/api/mail/status');
+        MAIL_ENABLED = r.ok && (await r.json()).enabled === true;
+    } catch (error) {
+        MAIL_ENABLED = false;
     }
 }
 
@@ -61,8 +71,38 @@ function showPasteResult(result) {
         viewsNote.style.display = 'none';
     }
 
+    CURRENT_PASTE_ID = result.id;
+    document.getElementById('emailBox').style.display = MAIL_ENABLED ? 'block' : 'none';
+    document.getElementById('emailNote').style.display = 'none';
+    document.getElementById('emailTo').value = '';
+
     document.getElementById('resultSection').style.display = 'block';
     document.getElementById('resultSection').scrollIntoView({ behavior: 'smooth' });
+}
+
+// Email the link of the paste just made to one address. The server sends
+// the link and its limits, never the paste itself.
+async function emailLink() {
+    const note = document.getElementById('emailNote');
+    const to = document.getElementById('emailTo').value.trim();
+    const button = document.getElementById('emailBtn');
+    if (!to || !CURRENT_PASTE_ID) return;
+    button.disabled = true;
+    try {
+        const response = await fetch(`${API_BASE}/${encodeURIComponent(CURRENT_PASTE_ID)}/email`, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ to })
+        });
+        let body = {};
+        try { body = await response.json(); } catch (e) { /* no body */ }
+        note.textContent = response.ok ? `Sent to ${body.to || to}.` : (body.error || `Not sent (HTTP ${response.status}).`);
+    } catch (error) {
+        note.textContent = `Not sent: ${error.message}`;
+    } finally {
+        note.style.display = 'block';
+        button.disabled = false;
+    }
 }
 
 // Copy text to clipboard
@@ -202,6 +242,10 @@ document.querySelectorAll('[data-copy]').forEach(button => {
     button.addEventListener('click', () => copyToClipboard(button.dataset.copy));
 });
 document.getElementById('createAnotherBtn').addEventListener('click', createAnotherPaste);
+document.getElementById('emailBtn').addEventListener('click', emailLink);
+document.getElementById('emailTo').addEventListener('keydown', (e) => {
+    if (e.key === 'Enter') { e.preventDefault(); emailLink(); }
+});
 
 // Initialize app and load recent pastes on page load
 document.addEventListener('DOMContentLoaded', async () => {

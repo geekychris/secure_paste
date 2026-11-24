@@ -65,6 +65,19 @@ management:
 # SecurePaste application configuration
 securepaste:
   base-url: http://localhost:8097
+  # "Email this link" (README, "Emailing a link"). Off unless a host is set;
+  # every value can come from the environment (SECUREPASTE_MAIL_HOST, ...).
+  # The password is read from password-file, never from configuration.
+  mail:
+    host: ${SECUREPASTE_MAIL_HOST:}
+    port: ${SECUREPASTE_MAIL_PORT:0}
+    tls: ${SECUREPASTE_MAIL_TLS:starttls}
+    username: ${SECUREPASTE_MAIL_USERNAME:}
+    from: ${SECUREPASTE_MAIL_FROM:}
+    from-name: ${SECUREPASTE_MAIL_FROM_NAME:SecurePaste}
+    reply-to: ${SECUREPASTE_MAIL_REPLY_TO:}
+    password-file: ${SECUREPASTE_MAIL_PASSWORD_FILE:/var/run/securepaste/smtp/password}
+    site-name: ${SECUREPASTE_SITE_NAME:}
   # This URL will be used for generating paste links in the UI
   # For development, this defaults to localhost with the configured port
 

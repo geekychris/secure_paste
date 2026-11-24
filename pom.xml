@@ -77,6 +77,14 @@
             <version>2.3.0</version>
         </dependency>
 
+        <!-- Emailing a paste's link (MailService): Jakarta Mail through
+             Spring's JavaMailSenderImpl. Configured by securepaste.mail.*,
+             not spring.mail.*, so the password is read from a file per send. -->
+        <dependency>
+            <groupId>org.springframework.boot</groupId>
+            <artifactId>spring-boot-starter-mail</artifactId>
+        </dependency>
+
         <!-- Testing -->
         <dependency>
             <groupId>org.springframework.boot</groupId>
