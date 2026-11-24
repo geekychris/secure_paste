@@ -387,6 +387,15 @@
                 </div>
             </div>
             <p id="viewsNote" class="views-note" style="display: none;"></p>
+            <!-- Shown only when the server can send mail (GET /api/mail/status). -->
+            <div id="emailBox" class="result-item" style="display: none;">
+                <label for="emailTo">Email this link:</label>
+                <div class="result-value">
+                    <input type="email" id="emailTo" placeholder="name@example.com" maxlength="254" autocomplete="email">
+                    <button class="btn btn-copy" type="button" id="emailBtn">Send</button>
+                </div>
+                <p id="emailNote" class="views-note" style="display: none;"></p>
+            </div>
             <div class="result-actions">
                 <a id="viewPasteLink" href="#" class="btn" target="_blank">View Paste</a>
                 <button class="btn btn-secondary" type="button" id="createAnotherBtn">Create Another Paste</button>
